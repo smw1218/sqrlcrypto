@@ -1,6 +1,7 @@
 package sqrlcrypto
 
 import (
+	"encoding/hex"
 	"log"
 	"testing"
 
@@ -54,21 +55,25 @@ func TestSimpleExport(t *testing.T) {
 	log.Printf("Iterations: %d time: %d N: %d", mk.ScryptIterations, mk.PasswordVerifySeconds, mk.ScryptN)
 	keyRes, err := EnScryptAgain(mk.ScryptSalt[:], "the password", int(mk.ScryptIterations), mk.ScryptN)
 	//keyRes, err := EnScryptAgain(mk.ScryptSalt[:], "1q2w3e4", int(mk.ScryptIterations), mk.ScryptN)
-	master, err := AESGCMDecrypt(keyRes.Value, append(mk.EncryptedIdentityMasterKey[:], mk.EncryptedIdentityLockKey[:]...), mk.AESGCMIV[:], mk.VerificationTag[:])
+	master, err := AESGCMDecrypt(keyRes.Value, append(mk.EncryptedIdentityMasterKey[:], mk.EncryptedIdentityLockKey[:]...), mk.AESGCMIV[:], mk.AdditionalData(), mk.VerificationTag[:])
 	if err != nil {
 		t.Errorf("Failed decrypt: %v", err)
 	}
-	t.Errorf("Master: %#v", master)
+
+	if hex.EncodeToString(master) != "2970d2432dd6548d5d86843bb5f04fe47304cad0999c6315b07bec671090d7a9"+"f37c6817ee9c916a1efd4e648398b12372d5735f76db0984ece953e2be816a0f" {
+		t.Errorf("Incorrect keys: %x", master)
+	}
 
 	rc := decoded.RescueCode
 	keyResult, err := EnScryptAgain(rc.ScryptSalt[:], "894268272655451828340130", int(rc.ScryptIterations), rc.ScryptN)
 	//keyResult, err := EnScryptAgain(rc.ScryptSalt[:], "154123679654974978215013", int(rc.ScryptIterations), rc.ScryptN)
-	stuff, err := AESGCMDecrypt(keyResult.Value, rc.EncryptedIdentityUnlockKey[:], make([]byte, 12), rc.VerificationTag[:])
+	iuk, err := AESGCMDecrypt(keyResult.Value, rc.EncryptedIdentityUnlockKey[:], make([]byte, 12), rc.AdditionalData(), rc.VerificationTag[:])
 	if err != nil {
 		t.Errorf("Failed decrypt: %v", err)
 	}
-
-	t.Errorf("Fail! %x", stuff)
+	if hex.EncodeToString(iuk) != "d8ef4bf9d7d8cd286ebd450ee2f4a7d222503fb1a27266b86a90bfcc0a4f99fa" {
+		t.Errorf("Incorrect IUK: %x", iuk)
+	}
 }
 
 func TestSimpleEncrypt(t *testing.T) {
@@ -90,7 +95,7 @@ func TestSimpleEncrypt(t *testing.T) {
 	log.Printf("Iterations: %d time: %d N: %d", mk.ScryptIterations, mk.PasswordVerifySeconds, mk.ScryptN)
 	keyRes, err := EnScryptAgain(mk.ScryptSalt[:], "the password", int(mk.ScryptIterations), mk.ScryptN)
 
-	encrypted, err := AESGCMEncrypt(keyRes.Value, plain, mk.AESGCMIV[:])
+	encrypted, err := AESGCMEncrypt(keyRes.Value, plain, mk.AESGCMIV[:], mk.AdditionalData())
 	if err != nil {
 		t.Fatalf("Err encryping: %v", err)
 	}

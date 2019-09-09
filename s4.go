@@ -128,7 +128,16 @@ func (s4 *S4Type1) String() string {
 
 func (s4 *S4Type1) Encode() []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, 125))
+	buf.Write(s4.AdditionalData())
+	binary.Write(buf, binary.LittleEndian, s4.EncryptedIdentityMasterKey)
+	binary.Write(buf, binary.LittleEndian, s4.EncryptedIdentityLockKey)
+	binary.Write(buf, binary.LittleEndian, s4.VerificationTag)
 
+	return buf.Bytes()
+}
+
+func (s4 *S4Type1) AdditionalData() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0, 45))
 	binary.Write(buf, binary.LittleEndian, s4.Length)
 	binary.Write(buf, binary.LittleEndian, s4.Type)
 	binary.Write(buf, binary.LittleEndian, s4.PlainLength)
@@ -140,10 +149,6 @@ func (s4 *S4Type1) Encode() []byte {
 	binary.Write(buf, binary.LittleEndian, s4.HintLength)
 	binary.Write(buf, binary.LittleEndian, s4.PasswordVerifySeconds)
 	binary.Write(buf, binary.LittleEndian, s4.IdleTimeoutMinutes)
-	binary.Write(buf, binary.LittleEndian, s4.EncryptedIdentityMasterKey)
-	binary.Write(buf, binary.LittleEndian, s4.EncryptedIdentityLockKey)
-	binary.Write(buf, binary.LittleEndian, s4.VerificationTag)
-
 	return buf.Bytes()
 }
 
@@ -176,6 +181,16 @@ func S4Type2Decode(e []byte) (*S4Type2, error) {
 	copy(t.EncryptedIdentityUnlockKey[:], e[25:57])
 	copy(t.VerificationTag[:], e[57:])
 	return t, nil
+}
+
+func (s4 *S4Type2) AdditionalData() []byte {
+	buf := bytes.NewBuffer(make([]byte, 0, 25))
+	binary.Write(buf, binary.LittleEndian, s4.Length)
+	binary.Write(buf, binary.LittleEndian, s4.Type)
+	buf.Write(s4.ScryptSalt[:])
+	binary.Write(buf, binary.LittleEndian, s4.ScryptN)
+	binary.Write(buf, binary.LittleEndian, s4.ScryptIterations)
+	return buf.Bytes()
 }
 
 func (s4 *S4Type2) String() string {

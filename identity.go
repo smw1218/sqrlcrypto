@@ -3,13 +3,11 @@ package sqrlcrypto
 import (
 	"crypto"
 	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"io"
-	"log"
 	"math/big"
 	"time"
-
-	"github.com/smw1218/sqrlcrypto/cipher"
 
 	"github.com/aead/ecdh"
 	"golang.org/x/crypto/ed25519"
@@ -44,7 +42,7 @@ func AESGCMEncryptOld(rand io.Reader, password string, plaintext []byte, duratio
 		return nil, err
 	}
 
-	dst, err := AESGCMEncrypt(key.Value, plaintext, iv)
+	dst, err := AESGCMEncrypt(key.Value, plaintext, iv, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +54,7 @@ func AESGCMEncryptOld(rand io.Reader, password string, plaintext []byte, duratio
 	}, nil
 }
 
-func AESGCMEncrypt(key, plaintext, iv []byte) ([]byte, error) {
+func AESGCMEncrypt(key, plaintext, iv, additionalData []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -65,10 +63,10 @@ func AESGCMEncrypt(key, plaintext, iv []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return aesgcm.Seal(nil, iv, plaintext, nil), nil
+	return aesgcm.Seal(nil, iv, plaintext, additionalData), nil
 }
 
-func AESGCMDecrypt(key, encrypted, iv, tag []byte) ([]byte, error) {
+func AESGCMDecrypt(key, encrypted, iv, additionalData, tag []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -78,8 +76,7 @@ func AESGCMDecrypt(key, encrypted, iv, tag []byte) ([]byte, error) {
 		return nil, err
 	}
 	concat := append(encrypted, tag...)
-	log.Printf("concatsz: %v", len(concat))
-	return aesgcm.Open(nil, iv, concat, nil)
+	return aesgcm.Open(nil, iv, concat, additionalData)
 }
 
 func CreateIdentity(rand io.Reader, password string) (*SqrlIdentity, error) {
@@ -139,12 +136,14 @@ func EnHash(key []byte) []byte {
 	// do first hash to make sure we end up with 256 bits
 	result := sha256.Sum256(key)
 
+	prevSha := result
 	// spec says do this 16 times (minus the one above makes 15)
 	for i := 0; i < 15; i++ {
-		nextSha := sha256.Sum256(result[:])
+		nextSha := sha256.Sum256(prevSha[:])
 		for j := 0; j < 32; j++ {
 			result[j] ^= nextSha[j]
 		}
+		prevSha = nextSha
 	}
 	return result[:]
 }

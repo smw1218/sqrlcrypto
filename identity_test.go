@@ -70,13 +70,13 @@ func TestEncryptDecrypt(t *testing.T) {
 	iv := make([]byte, 12)
 	io.ReadFull(rand.Reader, iv)
 
-	enc, err := AESGCMEncrypt(res.Value, []byte("supersecretstuff"), iv)
+	enc, err := AESGCMEncrypt(res.Value, []byte("supersecretstuff"), iv, nil)
 	if err != nil {
 		t.Errorf("Failed encrypt: %v", err)
 	}
 	tagOffset := len(enc) - 16
 
-	master, err := AESGCMDecrypt(res.Value, enc[:tagOffset], iv, enc[tagOffset:])
+	master, err := AESGCMDecrypt(res.Value, enc[:tagOffset], iv, nil, enc[tagOffset:])
 	if err != nil {
 		t.Errorf("Failed decrypt: %v", err)
 	}
